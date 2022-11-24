@@ -1,0 +1,416 @@
+import math
+import numpy as np
+
+
+class Kinematics:
+    def __init__(self, type, loc_input):
+        if type == 1:
+            Kinematics.joints = self.inverse_kinematics(loc_input)
+            print(Kinematics.joints)
+        if type == 2:
+            print("Here I am!")
+            Kinematics.position = self.forward_kinematics(loc_input)
+            print(Kinematics.position)
+
+    def inverse_kinematics(self, reverse_input):
+        input_matrix = [[0, math.radians(-90), 41.694, 0],
+                       [0, 0, 0, 150],
+                       [0, math.radians(90), 0, 0],
+                       [0, math.radians(-90), -159.5, 0],
+                       [0, math.radians(90), 0, 0],
+                       [0, 0, -65, 0]]
+        #input_matrix = self.flip_matrix(input_matrix)
+        pX = [0]*2
+        pY = [0]*2
+        pX_a1 = [0]*2
+        pa2H = [0]*2
+        pa3H = [0]*2
+        Theta_A = [0]*2
+        Theta_B = [0]*2
+        Theta_C = [0]*2
+        Theta_D = [0]*2
+        Theta_E = [0]*2
+        J2_Angle = [0]*2
+        J3_Angle = [0]*2
+        J4_Angle = [0]*2
+        J5_Angle = [0]*2
+        temp1 = np.zeros([4, 4])
+        J_Matrix = np.zeros([4,4,6])
+
+        R0_3_Trans_Small = np.zeros([3,3])
+        temp_small = np.zeros([3,3])
+
+        R0_T = np.zeros([4,4])
+        R0_T[0][0] = ((math.cos(reverse_input[3])) * (math.cos(reverse_input[5]))) - (
+                    math.cos(reverse_input[4]) * math.sin(reverse_input[3]) * math.sin(reverse_input[5]))
+        R0_T[0][1] = ((math.sin(reverse_input[3])) * (math.cos(reverse_input[5]))) + (
+                    math.cos(reverse_input[4]) * math.cos(reverse_input[3]) * math.sin(reverse_input[5]))
+        R0_T[0][2] = ((math.sin(reverse_input[3])) * (math.sin(reverse_input[4])))
+        R0_T[0][3] = reverse_input[0]
+        R0_T[1][0] = ((math.cos(reverse_input[4])) * (math.cos(reverse_input[5])) * math.sin(reverse_input[3])) + (
+                    math.cos(reverse_input[3]) * math.sin(reverse_input[5]))
+        R0_T[1][1] = ((math.cos(reverse_input[4])) * (math.cos(reverse_input[5])) * math.cos(reverse_input[3])) - (
+                    math.sin(reverse_input[3]) * math.sin(reverse_input[5]))
+        R0_T[1][2] = -((math.cos(reverse_input[3])) * (math.sin(reverse_input[4])))
+        R0_T[1][3] = reverse_input[1]
+        R0_T[2][0] = ((math.sin(reverse_input[4])) * (math.sin(reverse_input[5])))
+        R0_T[2][1] = ((math.cos(reverse_input[3])) * (math.sin(reverse_input[4])))
+        R0_T[2][2] = -((math.cos(reverse_input[4])))
+        R0_T[2][3] = reverse_input[2]
+        R0_T[3][0] = 0
+        R0_T[3][1] = 0
+        R0_T[3][2] = 0
+        R0_T[3][3] = 1
+        #print("R0_T")
+        #print(R0_T)
+
+        work_frame = np.zeros([4,4])
+        for i in range(len(work_frame)):
+            work_frame[i,i] = 1
+
+        R0_T_Work = self.matrix_multiply(R0_T, work_frame)
+        R0_6 = self.matrix_multiply(R0_T_Work, work_frame)
+        R0_6[0][0] = R0_6[0][0] * -1
+        #print("R0_6")
+        #print(R0_6)
+
+        R0_6_Remove = np.zeros([4,4])
+        R0_3_Trans = np.zeros([4,4])
+        #R0_3_Trans_Small = np.zeros([4,4])
+
+        R0_6_Remove[0][0] = math.cos(math.radians(180))
+        R0_6_Remove[0][1] = math.sin(math.radians(180))
+        R0_6_Remove[1][0] = -math.sin(math.radians(180)) * math.cos(input_matrix[5][1])
+        R0_6_Remove[1][1] = math.cos(math.radians(180)) * math.cos(input_matrix[5][1])
+        R0_6_Remove[2][2] = math.cos(input_matrix[5][1])
+        R0_6_Remove[2][3] = -input_matrix[5][2]
+        R0_6_Remove[3][3] = 1
+        #print("R0_6_Remove")
+        #print(R0_6_Remove)
+        #R0_6 = self.flip_matrix(R0_6)
+        R0_6_Remove = self.flip_matrix(R0_6_Remove)
+        R0_5 = self.matrix_multiply(R0_6, R0_6_Remove)
+        #R0_5 = self.flip_matrix(R0_5)
+        #print("R0_5")
+        #print(R0_5)
+        #R0_5 = self.flip_matrix(R0_5)
+
+        J1_Angle = math.degrees(math.atan(R0_5[1][3] / R0_5[0][3]))
+        pX[0] = math.sqrt(pow(abs(R0_5[0][3]), 2) + pow(abs(R0_5[1][3]), 2))
+        pY[0] = R0_5[2][3] - input_matrix[0][2]
+        pX_a1[0] = pX[0] - input_matrix[0][3]
+        pX_a1[1] = -1 * pX_a1[0]
+        pa2H[1] = math.sqrt(pow(pX_a1[1], 2) + pow(pY[0], 2))
+        Theta_B[1] = math.degrees(math.atan(pX_a1[1] / pY[0]))
+        #print(((pow(input_matrix[1][3], 2) + pow(pa2H[1], 2) -
+        #                                     pow(abs(input_matrix[3][2]), 2)) / (2 * input_matrix[1][3] * pa2H[1])))
+        #Theta_A[1] = math.degrees(math.acos((pow(input_matrix[1][3], 2) + pow(pa2H[1], 2) -
+        #                                     pow(abs(input_matrix[3][2]), 2)) / (2 * input_matrix[1][3] * pa2H[1])))
+        inbetween = (((pow(input_matrix[1][3], 2) + pow(pa2H[1], 2) -
+                                             pow(abs(input_matrix[3][2]), 2)) / (2 * input_matrix[1][3] * pa2H[1])))
+
+        #print(math.acos(54))
+        Theta_A[1] = math.degrees(math.acos(inbetween))
+        #print(Theta_A[1])
+        Theta_D[1] = 90 - (Theta_A[1] + Theta_B[1])
+        pa2H[0] = math.sqrt(pow(pY[0], 2) + pow(pX_a1[0], 2))
+        pa3H[0] = math.sqrt(pow(input_matrix[3][2], 2) + pow(input_matrix[2][3], 2))
+        Theta_A[0] = math.degrees(math.atan(pX[0] / pY[0]))
+        Theta_B[0] = math.degrees(math.acos((pow(input_matrix[1][3], 2) + pow(pa2H[0], 2) -
+                                             pow(abs(pa3H[0]), 2)) / (2 * input_matrix[1][3] * pa2H[0])))
+
+        if input_matrix[2][3] == 0:
+            Theta_E[0] = 90
+        else:
+            Theta_E[0] = math.degrees(math.atan(abs(input_matrix[3][2]) / input_matrix[2][3]))
+        Theta_C[0] = 180 - math.degrees(math.acos((pow(pa3H[0], 2) + pow(input_matrix[1][3], 2) -
+                                       pow(abs(pa2H[0]), 2)) / (2 * input_matrix[1][3] * pa3H[0]))) + (90 - Theta_E[0])
+        Theta_C[1] = Theta_C[0]
+
+        if pX_a1[0] < 0:
+            J2_Angle[0] = (Theta_A[0] + Theta_B[0]) * -1
+        else:
+            J2_Angle[0] = -180 + Theta_D[1]
+
+        J3_Angle[0] = Theta_C[0]
+
+        input_matrix[0][0] = math.radians(J1_Angle)
+        input_matrix[1][0] = math.radians(J2_Angle[0])
+        input_matrix[2][0] = math.radians(J3_Angle[0] - 90)
+
+        # Fill in J1 through 3 for reverse kinematics
+        for i in range(0,2):
+            for j in range(0,3):
+                for k in range(0,3):
+                    if j == 0:
+                        if k == 0:
+                            J_Matrix[j][k][i] = math.cos(input_matrix[i][0])
+                        elif k == 1:
+                            J_Matrix[j][k][i] = -math.cos(input_matrix[i][1]) * math.sin(input_matrix[i][0])
+                        elif k == 2:
+                            J_Matrix[j][k][i] = math.sin(input_matrix[i][1]) * math.sin(input_matrix[i][0])
+                        elif k == 3:
+                            J_Matrix[j][k][i] = (input_matrix[i][3]) * math.cos(input_matrix[i][0])
+                    if j == 1:
+                        if k == 0:
+                            J_Matrix[j][k][i] = math.sin(input_matrix[i][0])
+                        elif k == 1:
+                            J_Matrix[j][k][i] = math.cos(input_matrix[i][1]) * math.cos(input_matrix[i][0])
+                        elif k == 2:
+                            J_Matrix[j][k][i] = -math.sin(input_matrix[i][1]) * math.cos(input_matrix[i][0])
+                        elif k == 3:
+                            J_Matrix[j][k][i] = (input_matrix[i][3]) * math.sin(input_matrix[i][0])
+                    if j == 2:
+                        if k == 0:
+                            J_Matrix[j][k][i] = 0
+                        if k == 1:
+                            J_Matrix[j][k][i] = math.sin(input_matrix[i][1])
+                        if k == 2:
+                            J_Matrix[j][k][i] = math.cos(input_matrix[i][1])
+                        if k == 3:
+                            J_Matrix[j][k][i] = input_matrix[i][2]
+                    if j == 3:
+                        if k == 0:
+                            J_Matrix[j][k][i] = 0
+                        if k == 1:
+                            J_Matrix[j][k][i] = 0
+                        if k == 2:
+                            J_Matrix[j][k][i] = 0
+                        if k == 3:
+                            J_Matrix[j][k][i] = 1
+
+        for k in range(0,3):
+            if k == 0:
+                for i in range(0,3):
+                    for j in range(0,3):
+                        temp1[j][i] = J_Matrix[i][j][k]
+            if k == 1:
+                R0_1 = self.matrix_multiply(work_frame, temp1)
+                temp2 = self.flip_matrix(R0_1)
+                for i in range(0,3):
+                    for j in range(0,3):
+                        temp1[i][j] = J_Matrix[i][j][k]
+            if k == 2:
+                R0_2 = self.matrix_multiply(temp2, temp1)
+                for i in range(0,3):
+                    for j in range(0,3):
+                        temp1[i][j] = J_Matrix[i][j][k]
+                        temp2[j][i] = R0_2[j][i]
+                R0_3 = self.matrix_multiply(temp2, temp1)
+
+        R0_3_Trans = self.flip_matrix(R0_3)
+
+        for i in range(0,2):
+            for j in range(0,2):
+                R0_3_Trans_Small[i][j] = R0_3_Trans[i][j]
+                temp_small[i][j] = R0_5[i][j]
+
+        J4_Angle[0] = math.degrees(math.atan2(R0_3_Trans[1][2], R0_3_Trans[0][2]))
+        #print(len(R0_3_Trans_Small))
+        #print(len(R0_3_Trans_Small[0]))
+        #print(R0_3_Trans_Small)
+        R3_6 = self.matrix_multiply(R0_3_Trans_Small, temp_small)
+        J5_Angle[0] = math.degrees(math.atan2((math.sqrt(1 - pow(R3_6[2][2], 2))), R3_6[2][2]))
+
+
+        # BOTH OF THESE IF STATEMENTS WILL CHANGE BASED OFF MOTOR MOUNTING
+        if reverse_input[2] < -24:
+            J1_Angle = J1_Angle + 50;
+            J2_Angle[0] = -1 * (180 + J2_Angle[0]);
+            J3_Angle[0] = J3_Angle[0] + 90;
+            J4_Angle[0] = 105;
+            J5_Angle[0] = (90 - (J5_Angle[0] - 90));
+        if reverse_input[2] > -24:
+            J1_Angle = J1_Angle + 50;
+            J2_Angle[0] = -1 * (J2_Angle[0]);
+            J3_Angle[0] = J3_Angle[0] + 90;
+            J4_Angle[0] = 105;
+            J5_Angle[0] = (90 - J5_Angle[0]);
+
+        j_angles = [J1_Angle, J2_Angle[0], J3_Angle[0], J4_Angle[0], J5_Angle[0]]
+        return j_angles
+
+    def forward_kinematics(self, forward_input):
+        input_matrix = [[0, math.radians(-90), 41.694, 0],
+                        [0, 0, 0, 150],
+                        [0, math.radians(90), 0, 0],
+                        [0, math.radians(-90), -159.5, 0],
+                        [0, math.radians(90), 0, 0],
+                        [0, 0, -65, 0]]
+        final_angle = np.zeros([6])
+        work_frame = np.zeros([4, 4])
+        tool_frame = np.zeros([4, 4])
+        J1_matrix = np.zeros([4, 4])
+        J2_matrix = np.zeros([4, 4])
+        J3_matrix = np.zeros([4, 4])
+        J4_matrix = np.zeros([4, 4])
+        J5_matrix = np.zeros([4, 4])
+        J6_matrix = np.zeros([4, 4])
+        #print(len(input_matrix))
+        #print(len(input_matrix[0]))
+        for i in range(len(work_frame)):
+            work_frame[i, i] = 1
+            tool_frame[i, i] = 1
+        for i in range(len(forward_input)):
+            input_matrix[i][0] = math.radians(forward_input[i])
+        input_matrix[5][0] = math.radians(180.01)
+        #print(input_matrix)
+        for i in range(4):
+            for j in range(4):
+                if i == 0:
+                    if j == 0:
+                        J1_matrix[i][j] = math.cos(input_matrix[0][0])
+                        J2_matrix[i][j] = math.cos(input_matrix[1][0])
+                        J3_matrix[i][j] = math.cos(input_matrix[2][0])
+                        J4_matrix[i][j] = math.cos(input_matrix[3][0])
+                        J5_matrix[i][j] = math.cos(input_matrix[4][0])
+                        J6_matrix[i][j] = math.cos(input_matrix[5][0])
+                    if j == 1:
+                        J1_matrix[i][j] = -1*math.sin(input_matrix[0][0])*math.cos(input_matrix[0][1])
+                        J2_matrix[i][j] = -1*math.sin(input_matrix[1][0])*math.cos(input_matrix[1][1])
+                        J3_matrix[i][j] = -1*math.sin(input_matrix[2][0])*math.cos(input_matrix[2][1])
+                        J4_matrix[i][j] = -1*math.sin(input_matrix[3][0])*math.cos(input_matrix[3][1])
+                        J5_matrix[i][j] = -1*math.sin(input_matrix[4][0])*math.cos(input_matrix[4][1])
+                        J6_matrix[i][j] = -1*math.sin(input_matrix[5][0])*math.cos(input_matrix[5][1])
+                    if j == 2:
+                        J1_matrix[i][j] = math.sin(input_matrix[0][0])*math.sin(input_matrix[0][1])
+                        J2_matrix[i][j] = math.sin(input_matrix[1][0])*math.sin(input_matrix[1][1])
+                        J3_matrix[i][j] = math.sin(input_matrix[2][0])*math.sin(input_matrix[2][1])
+                        J4_matrix[i][j] = math.sin(input_matrix[3][0])*math.sin(input_matrix[3][1])
+                        J5_matrix[i][j] = math.sin(input_matrix[4][0])*math.sin(input_matrix[4][1])
+                        J6_matrix[i][j] = math.sin(input_matrix[5][0])*math.sin(input_matrix[5][1])
+                    if j == 3:
+                        J1_matrix[i][j] = math.acos(input_matrix[0][0])
+                        J2_matrix[i][j] = math.acos(input_matrix[1][0])
+                        J3_matrix[i][j] = math.acos(input_matrix[2][0])
+                        J4_matrix[i][j] = math.acos(input_matrix[3][0])
+                        J5_matrix[i][j] = math.acos(input_matrix[4][0])
+                        J6_matrix[i][j] = math.acos(input_matrix[5][0])
+                if i == 1:
+                    if j == 0:
+                        J1_matrix[i][j] = math.sin(input_matrix[0][0])
+                        J2_matrix[i][j] = math.sin(input_matrix[1][0])
+                        J3_matrix[i][j] = math.sin(input_matrix[2][0])
+                        J4_matrix[i][j] = math.sin(input_matrix[3][0])
+                        J5_matrix[i][j] = math.sin(input_matrix[4][0])
+                        J6_matrix[i][j] = math.sin(input_matrix[5][0])
+                    if j == 1:
+                        J1_matrix[i][j] = math.cos(input_matrix[0][0])*math.cos(input_matrix[0][1])
+                        J2_matrix[i][j] = math.cos(input_matrix[1][0])*math.cos(input_matrix[1][1])
+                        J3_matrix[i][j] = math.cos(input_matrix[2][0])*math.cos(input_matrix[2][1])
+                        J4_matrix[i][j] = math.cos(input_matrix[3][0])*math.cos(input_matrix[3][1])
+                        J5_matrix[i][j] = math.cos(input_matrix[4][0])*math.cos(input_matrix[4][1])
+                        J6_matrix[i][j] = math.cos(input_matrix[5][0])*math.cos(input_matrix[5][1])
+                    if j == 2:
+                        J1_matrix[i][j] = -1*math.cos(input_matrix[0][0])*math.sin(input_matrix[0][1])
+                        J2_matrix[i][j] = -1*math.cos(input_matrix[1][0])*math.sin(input_matrix[1][1])
+                        J3_matrix[i][j] = -1*math.cos(input_matrix[2][0])*math.sin(input_matrix[2][1])
+                        J4_matrix[i][j] = -1*math.cos(input_matrix[3][0])*math.sin(input_matrix[3][1])
+                        J5_matrix[i][j] = -1*math.cos(input_matrix[4][0])*math.sin(input_matrix[4][1])
+                        J6_matrix[i][j] = -1*math.cos(input_matrix[5][0])*math.sin(input_matrix[5][1])
+                    if j == 3:
+                        J1_matrix[i][j] = math.asin(input_matrix[0][0])
+                        J2_matrix[i][j] = math.asin(input_matrix[1][0])
+                        J3_matrix[i][j] = math.asin(input_matrix[2][0])
+                        J4_matrix[i][j] = math.asin(input_matrix[3][0])
+                        J5_matrix[i][j] = math.asin(input_matrix[4][0])
+                        J6_matrix[i][j] = math.asin(input_matrix[5][0])
+                if i == 2:
+                    if j == 0:
+                        J1_matrix[i][j] = 0
+                        J2_matrix[i][j] = 0
+                        J3_matrix[i][j] = 0
+                        J4_matrix[i][j] = 0
+                        J5_matrix[i][j] = 0
+                        J6_matrix[i][j] = 0
+                    if j == 1:
+                        J1_matrix[i][j] = math.sin(input_matrix[0][1])
+                        J2_matrix[i][j] = math.sin(input_matrix[1][1])
+                        J3_matrix[i][j] = math.sin(input_matrix[2][1])
+                        J4_matrix[i][j] = math.sin(input_matrix[3][1])
+                        J5_matrix[i][j] = math.sin(input_matrix[4][1])
+                        J6_matrix[i][j] = math.sin(input_matrix[5][1])
+                    if j == 2:
+                        J1_matrix[i][j] = math.cos(input_matrix[0][1])
+                        J2_matrix[i][j] = math.cos(input_matrix[1][1])
+                        J3_matrix[i][j] = math.cos(input_matrix[2][1])
+                        J4_matrix[i][j] = math.cos(input_matrix[3][1])
+                        J5_matrix[i][j] = math.cos(input_matrix[4][1])
+                        J6_matrix[i][j] = math.cos(input_matrix[5][1])
+                    if j == 3:
+                        J1_matrix[i][j] = (input_matrix[0][2])
+                        J2_matrix[i][j] = (input_matrix[1][2])
+                        J3_matrix[i][j] = (input_matrix[2][2])
+                        J4_matrix[i][j] = (input_matrix[3][2])
+                        J5_matrix[i][j] = (input_matrix[4][2])
+                        J6_matrix[i][j] = (input_matrix[5][2])
+                if i == 3:
+                    if j == 0:
+                        J1_matrix[i][j] = 0
+                        J2_matrix[i][j] = 0
+                        J3_matrix[i][j] = 0
+                        J4_matrix[i][j] = 0
+                        J5_matrix[i][j] = 0
+                        J6_matrix[i][j] = 0
+                    if j == 1:
+                        J1_matrix[i][j] = 0
+                        J2_matrix[i][j] = 0
+                        J3_matrix[i][j] = 0
+                        J4_matrix[i][j] = 0
+                        J5_matrix[i][j] = 0
+                        J6_matrix[i][j] = 0
+                    if j == 2:
+                        J1_matrix[i][j] = 0
+                        J2_matrix[i][j] = 0
+                        J3_matrix[i][j] = 0
+                        J4_matrix[i][j] = 0
+                        J5_matrix[i][j] = 0
+                        J6_matrix[i][j] = 0
+                    if j == 3:
+                        J1_matrix[i][j] = 1
+                        J2_matrix[i][j] = 1
+                        J3_matrix[i][j] = 1
+                        J4_matrix[i][j] = 1
+                        J5_matrix[i][j] = 1
+                        J6_matrix[i][j] = 1
+        R0_1 = self.matrix_multiply(J1_matrix, work_frame)
+        R0_2 = self.matrix_multiply(J2_matrix, R0_1)
+        R0_3 = self.matrix_multiply(J3_matrix, R0_2)
+        R0_4 = self.matrix_multiply(J4_matrix, R0_3)
+        R0_5 = self.matrix_multiply(J5_matrix, R0_4)
+        R0_6 = self.matrix_multiply(J5_matrix, R0_5)
+        R0_t = self.matrix_multiply(J6_matrix, R0_6)
+        final_angle[0] = R0_t[0][3]
+        final_angle[1] = R0_t[1][3]
+        final_angle[2] = R0_t[2][3]
+        final_angle[4] = math.degrees(math.atan2((-1*R0_t[2][2]) ,math.sqrt(math.pow(R0_t[1][2], 2)
+                                                                           + math.pow(R0_t[0][2]))))
+        final_angle[3] = math.degrees(math.atan2((R0_t[2][1] / math.cos(math.radians(final_angle[4]))),
+                                                 (R0_t[2][0] / math.cos(math.radians(final_angle[4])))))
+        final_angle[5] = math.degrees(math.atan2((R0_t[1][2] / math.cos(math.radians(final_angle[4]))),
+                                                 (R0_t[0][2] / math.cos(math.radians(final_angle[4])))))
+
+        return final_angle
+
+    def matrix_multiply(self, m1, m2):
+        length = 0
+        width = 0
+        length = len(m1)
+        width = len(m1[0])
+        solution = np.zeros([length, width])
+        #print(solution)
+        for i in range(0, len(solution)):
+            for j in range(0, len(solution)):
+                for k in range(0, len(solution)):
+                    solution[i][j] = (m1[i][j] * m2[k][j]) + solution[i][j]
+        return solution
+
+    def flip_matrix(self, matrix):
+        flipped = np.zeros([len(matrix[0]), len(matrix)])
+        for i in range(len(flipped)):
+            for j in range(len(flipped[0])):
+                flipped[i][j] = matrix[j][i]
+        return flipped
+
+#Kinematics()
+#app.mainloop()

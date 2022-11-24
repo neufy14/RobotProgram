@@ -1,0 +1,373 @@
+import cv2
+import numpy as np
+import sys
+from queue import Queue
+import math
+from tkinter import *
+import tkinter.ttk as ttk
+from PIL import Image, ImageTk
+import threading
+import sys
+import serial
+import serial.tools.list_ports
+import time
+
+
+def popupimg(img1, msg):
+    popup = Toplevel()
+    popup.wm_title(msg)
+    popup.img1 = img1
+    label = Label(popup, image=img1)
+    #label.configure(image=img1)
+    label.pack(side="top", fill="x", pady=10)
+    popup.mainloop()
+
+def popupmsg(tit, msg1):
+    popmsg = Toplevel()
+    popmsg.wm_title(tit)
+    label = Label(popmsg, text=msg1)
+    #label.configure(image=img1)
+    label.pack(side="top", fill="x", pady=10)
+    popmsg.mainloop()
+
+
+class MaterRobotProgram(Tk):
+
+    def __init__(self):
+        Tk.__init__(self)
+        container = Frame(self)
+        container.pack(sid="top", fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+        self.con_decide = -1
+        self.arduino_data = ''
+        self.frames = {}
+
+        for F, arg in ((HomePage, None), (VisionPage, None), (ProgramingPage, None), (SetIO, None)):
+
+            frame = F(container, self)
+            self.frames[F] = frame
+            print(arg)
+            frame.grid(row=0, column=0, sticky="nsew")
+            if arg:
+                frame.arg = arg
+
+        self.show_frame(HomePage, None)
+
+    def show_frame(self, cont, arg=None):
+        frame = self.frames[cont]
+        print("cont = ", cont)
+        print("frame = ", frame)
+        frame.tkraise()
+        if arg:
+            print("there is an argument")
+            print(arg)
+            frame.arg = arg
+        if arg == 2:
+            print("this is working")
+            a = ProgramingPage(None, None)
+            a.green_circle(self.con_decide)
+
+
+class HomePage(Frame):
+
+    def __init__(self, parent, controller):
+        Frame.__init__(self, parent)
+        self.controller = controller
+        home_label = Label(self, text = "This is the Home Page!")
+        home_label.grid(row=1, column=1)
+        vision_button = Button(self, text="Vision Program", command=lambda: controller.show_frame(VisionPage))
+        vision_button.grid(row=2, column=1)
+        program_button = Button(self, text="Manual Programing", command=lambda: controller.show_frame(ProgramingPage, 2))
+        program_button.grid(row=3, column=1)
+        io_button = Button(self, text="Setup I/O", command=lambda: controller.show_frame(SetIO))
+        io_button.grid(row=4, column=1)
+        self.connect_button = Button(self, text='Connect', border=0, bg='grey', command=self.connect_press)  #
+        self.connect_button.grid(row=40, column=10, padx=2, pady=2)
+        # holder = []
+        com_selection = StringVar()
+        com_port = ttk.Combobox(self, textvariable=com_selection, values=self.serial_ports())  #
+        com_port.grid(row=40, column=9, padx=2, pady=2)
+        self.holder = com_selection
+        print("create canvas")
+        connected_label = Label(self, text="Connection Status: ")
+        connected_label.grid(row=1, column=15)
+        self.canvas = Canvas(self, width=12, height=12, borderwidth=0, bg="white")
+        self.canvas.grid(row=1, column=20)
+        self.connected_status_circle = self.canvas.create_oval(2, 2, 13, 13, fill="white", outline="black")
+        #self.com_number = 'COM' + str(self.holder.get())[3]
+
+    def serial_ports(self):
+        time.sleep(0.1)
+        return serial.tools.list_ports.comports()
+
+    def connect_press(self):
+        self.controller.con_decide = 3
+        num = str(self.holder.get())[3]
+        self.com_number = 'COM' + str(num)
+        self.test = self.connect_test(self.com_number)
+
+    def connect_test(self, com):
+        con_test = ""
+        print(com)
+        self.controller.arduino_data = serial.Serial(port=com, baudrate=9600, timeout=0.1)
+        time.sleep(2)
+        self.controller.arduino_data.write('connect'.encode())
+        time.sleep(2)
+        con_test = self.controller.arduino_data.readline().decode()
+        print(con_test)
+        if "Connected" in con_test:
+            self.connect_button.configure(bg='blue')
+            print("turn button blue")
+            self.controller.con_decide = 1
+            print("turn green")
+            self.canvas.itemconfig(self.connected_status_circle, fill="green")
+            return True
+        else:
+            print("turn button grey")
+            self.connect_button.configure(bg='grey')
+            self.controller.con_decide = 2
+            return False
+
+    def arduino_access(self, message):
+        print(message)
+        response = ''
+        if self.con_decide == 1:
+            self.controller.arduino_data.write(message)
+            time.sleep(2)
+            response = self.controller.arduino_data.readline().decode()
+            while response != "done":
+                time.sleep(2)
+                response = self.controller.arduino_data.readline().decode()
+                time.sleep(2)
+        #else:
+        #    popupmsg("Connection Error", "You are not connected to the arduino")
+        print("con_decide = ", self.con_decide)
+
+
+class ProgramingPage(Frame):
+
+    def __init__(self, parent, controller):
+        Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = Label(self, text="Manual Programing Page", bg="white")
+        title_label.grid(row=1, column=1)
+        home_button = Button(self, text="Home Screen", bg="grey", border=0,
+                             command=lambda: controller.show_frame(HomePage))
+        home_button.grid(row=2, column=1, padx=10, pady=2)
+        joint_label = Label(self, text="Joint Jogging")
+        joint_label.grid(row=3, column=1, padx=10)
+        linear_label = Label(self, text="Linear Jogging")
+        linear_label.grid(row=4, column=5, padx=10)
+        self.program_text = "x=0  y=0   z=0"
+
+        self.cover = Frame(self, width=325, height=450, relief='solid')
+        self.program_label = Listbox(self, bg='white', bd=2, width=60, height=30, relief='solid')
+        self.program_label.grid(row=2, column=25, padx=10, rowspan=100, columnspan=100)
+
+        self.current_loc_label = Label(self, text="Current Position: ", bg="white")
+        self.current_loc_label.grid(row=2, column=3)
+        self.current_loc = Label(self, text=self.program_text, bg="white")
+        self.current_loc.grid(row=2, column=4)
+
+        self.save_label = [None]*20
+        self.saved_positions = np.zeros((20, 3), np.uint8)
+        empty = None
+        self.program_text = ""
+        self.save_loc = 0
+        self.job = None
+        self.x_pos = 0
+        self.y_pos = 0
+        self.z_pos = 0
+        #self.save_label = Label(self)
+        #linear_buttons("direction", y_placement, x_placement)
+        self.linear_buttons("x+", 8, 6)
+        self.linear_buttons("x-", 8, 4)
+        self.linear_buttons("y+", 6, 5)
+        self.linear_buttons("y-", 10, 5)
+        self.linear_buttons("z+", 6, 9)
+        self.linear_buttons("z-", 10, 9)
+        act1 = 1
+        act2 = 2
+        act3 = 3
+        self.y = -1
+        self.work_around = 1
+        self.record_button = Button(self, text="Record Position", command=lambda: self.save_position(act1, empty)) #
+        self.record_button.grid(row=14, column=4, columnspan=2)
+        self.delete_button = Button(self, text='Delete Position', command=lambda: self.save_position(act3, empty)) # self.program_label.delete(self.y)
+        self.delete_button.grid(row=14, column=2, columnspan=2)
+        self.insert_button = Button(self, text='Insert Position', command=lambda: self.save_position(act2, empty))  # self.program_label.delete(self.y)
+        self.insert_button.grid(row=14, column=6, columnspan=2)
+        self.play_button = Button(self, text='Play', command=lambda: self.run_program())
+        self.play_button.grid(row=16, column=4, columnspan=2)
+        self.green_circle(self.controller.con_decide)
+        #self.canvas.itemconfig(self.connected_status_circle, fill="green")
+        #if self.work_around == 2:
+        #    self.canvas.delete(self.connected_status_circle)
+
+    def green_circle(self, decide):
+        print("inside method")
+        connected_label = Label(self, text="Connection Status: ")
+        connected_label.grid(row=1, column=15)
+        self.canvas = Canvas(self, width=12, height=12, borderwidth=0, bg="white")
+        self.canvas.grid(row=1, column=20)
+        self.connected_status_circle = self.canvas.create_oval(2, 2, 13, 13, fill="white", outline="black")
+        if decide == 1:   # <---THIS DOES NOT WORK
+            print("turn green")
+            self.canvas.itemconfig(self.connected_status_circle, fill="green")
+            #self.canvas.delete(self.connected_status_circle)
+        #self.connected_status_circle = self.canvas.create_oval(2, 2, 13, 13, fill="green", outline="black")
+
+
+    def linear_buttons(self, direction, r, c):
+        self.lin_button = Button(self, text=direction, bg="white") #, command=lambda: self.movement(direction)
+        self.lin_button.grid(row=r, column=c)
+        self.lin_button.bind('<ButtonPress-1>', lambda event, direction=direction: self.start(direction))
+        self.lin_button.bind('<ButtonRelease-1>', lambda event: self.stop(direction))
+
+    def save_position(self, action, event):
+ 	if decide == 1: # <----THIS WORKS
+            print("turn green")
+            self.canvas.itemconfig(self.connected_status_circle, fill="green")
+            #self.canvas.delete(self.connected_status_circle)
+        self.program_text = "x=" + str(self.x_pos) + "  y=" + str(self.y_pos) + "   z=" + str(self.z_pos)
+        selection = self.program_label.curselection()
+        if action == 1:
+            if self.save_loc < 20:
+                self.program_label.insert(END, self.program_text)
+                self.save_loc += 1
+            elif self.save_loc >= 20:
+                popupmsg("Too many positions", "Only 20 saved positions available")
+        elif action == 2:
+            if self.save_loc < 20:
+                self.program_label.insert(selection[0]+1, self.program_text)
+                self.save_loc += 1
+            elif self.save_loc >= 20:
+                popupmsg("Too many positions", "Only 20 saved positions available")
+        elif action == 3:
+            self.program_label.delete(selection[0])
+            self.save_loc -= 1
+
+    def start(self, direction):
+        self.change = 0
+        self.movement(direction)
+
+    def stop(self, direction_pos):
+        self.after_cancel(self.job)
+        if direction_pos[0] == 'x':
+            self.x_pos = self.x_pos + self.change
+            print('self.x_pos = ', self.x_pos)
+        if direction_pos[0] == 'y':
+            self.y_pos = self.y_pos + self.change
+            print('self.y_pos = ', self.y_pos)
+        if direction_pos[0] == 'z':
+            self.z_pos = self.z_pos + self.change
+            print('self.z_pos = ', self.z_pos)
+        self.program_text = "x=" + str(self.x_pos) + "  y=" + str(self.y_pos) + "   z=" + str(self.z_pos)
+        self.current_loc.config(text=self.program_text)
+        print("stopping")
+
+    def movement(self, direction_move):
+        if direction_move[1] == '+':
+            self.change += 1
+        elif direction_move[1] == '-':
+            self.change -= 1
+        print(self.change)
+        self.job = self.after(50, self.movement, direction_move)
+        return self.change
+
+    def run_program(self):
+        elements = self.program_label.size()
+        #self.program_label.selection_set(2)
+        for i in range(0, elements):
+            self.a.arduino_access(self.program_label.get(i))
+            if i > 0:
+                self.program_label.selection_clear(i-1)
+            self.program_label.selection_set(i)
+            time.sleep(2)
+            print(self.program_label.get(i))
+        print(elements)
+
+    def send_message(self, message):
+        self.a.arduino_access(message)
+
+
+class VisionPage(Frame):
+
+    def __init__(self, parent, controller, attr=None):
+        Frame.__init__(self, parent)
+        home_button = Button(self, text="Home Screen", bg="grey", border=0,
+                             command=lambda: controller.show_frame(HomePage))
+        home_button.grid(row=10, column=40, padx=10, pady=2, rowspan=30, columnspan=20)
+        self.configure(bg="white")
+        self.capture_button = Button(self, text='Capture', bg='grey', border=0, command=lambda: self.capture_press())
+        self.capture_button.grid(row=5, column=40, padx=10, pady=2, rowspan=30, columnspan=20)
+        #self.capture_button.place(x=550, y=250)
+        self.cap1 = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
+        self.lmain = Label()
+
+        imageFrame = Frame(self, width=600, height=500)
+        imageFrame.grid(row=0, column=0, padx=10, pady=2, rowspan=30, columnspan=20)
+        self.lmain = Label(imageFrame)
+        self.lmain.grid(row=0, column=0)
+
+        thread = threading.Thread(target=self.show_image, args=())
+        thread.start()
+
+    def show_image(self):
+        _, self.frame = self.cap.read()
+        self.frame = cv2.flip(self.frame, 1)
+        cv2img = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+        self.img = Image.fromarray(cv2img)
+        imgtk = ImageTk.PhotoImage(image=self.img)
+        self.lmain.imgtk = imgtk
+        self.lmain.configure(image=imgtk)
+        self.lmain.after(self.show_image())
+
+    def capture_press(self):
+        filename = "savedimage.jpg"
+        cv2.imwrite(filename, self.frame)
+        load = Image.open(filename)
+        imgtk2 = ImageTk.PhotoImage(image=load)
+        popupimg(imgtk2, "Snapshot!")
+
+
+class SetIO(Frame):
+
+    def __init__(self, parent, controller, attr=None):
+        Frame.__init__(self, parent)
+        home_button = Button(self, text="Home Screen", bg="grey", border=0,
+                             command=lambda: controller.show_frame(HomePage))
+        home_button.grid(row=1, column=1)
+        for i in range(0, 5):
+            motor_text = "Motor " + str(i+1) + " Output"
+            step_label = Label(self, text=motor_text)
+            step_label.grid(row=3+i, column=1)
+        io_ports = 24
+        io_numbers = [0]*io_ports
+        for i in range(0, len(io_numbers)):
+            io_numbers[i] = i+1
+        self.io_select = [""] * 5
+        self.io_list = {}
+        io_select2 = 0
+        print(self.io_select)
+        for i in range(0, 5):
+            box = ttk.Combobox(self, textvariable=self.io_select[i], values=io_numbers)  #
+            self.io_list[i] = box
+            box.grid(row=3+i, column=2)
+            box.current(i+5)
+        set_button = Button(self, text="Set IO", command=self.set_io)
+        set_button.grid(row=10, column=1)
+
+    def set_io(self):
+        print("Hello")
+        value = self.io_list[1].current()
+        print("number 2 = ", value)
+
+
+#root = Tk()
+sys.setrecursionlimit(10**9)
+app = MaterRobotProgram()
+#app = VisionPage(master=root)
+app.mainloop()

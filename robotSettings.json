@@ -1,0 +1,23 @@
+{
+    "calibration": {
+        "calibrationPixelPerMm": 0,
+        "calibrationStatus": true,
+        "robotCalibration": {
+            "xCal": 0,
+            "yCal": 0,
+            "zCal": 0,
+            "wCal": 0,
+            "pCal": 0,
+            "rCal": 0,
+            "robotCalibrationStatus": true
+        },
+        "jointPotZeroValues": {
+            "J1": 617.0,
+            "J2": 529.0,
+            "J3": 487.0,
+            "J4": 473.0,
+            "J5": 463.0,
+            "J6": 427.0
+        }
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "model1": {
+        "minArea": -1,
+        "maxArea": -1,
+        "blackOrWhite": true,
+        "upperR": 255,
+        "lowerR": 0,
+        "upperG": 255,
+        "lowerG": 0,
+        "upperB": 255,
+        "lowerB": 0
+    }
+}

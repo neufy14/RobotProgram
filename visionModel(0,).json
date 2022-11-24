@@ -1,0 +1,13 @@
+{
+    "VisionModel1": {
+        "minArea": 100,
+        "maxArea": 5000,
+        "blackOrWhite": true,
+        "upperR": 141,
+        "lowerR": 95,
+        "upperG": 145,
+        "lowerG": 97,
+        "upperB": 145,
+        "lowerB": 97
+    }
+}

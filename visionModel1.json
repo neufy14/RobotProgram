@@ -1,0 +1,13 @@
+{
+    "alex and liam": {
+        "minArea": 100,
+        "maxArea": 5000,
+        "blackOrWhite": true,
+        "upperR": 152,
+        "lowerR": 102,
+        "upperG": 92,
+        "lowerG": 62,
+        "upperB": 153,
+        "lowerB": 103
+    }
+}
